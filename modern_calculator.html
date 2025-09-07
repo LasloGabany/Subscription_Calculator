@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор потерянных возможностей | Subscription Analytics</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            --warning-gradient: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            --dark-gradient: linear-gradient(135deg, #232526 0%, #414345 100%);
+            
+            --glass-bg: rgba(255, 255, 255, 0.25);
+            --glass-border: rgba(255, 255, 255, 0.18);
+            --text-primary: #2d3748;
+            --text-secondary: #4a5568;
+            --text-muted: #718096;
+            
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+            --shadow-xl: 0 20px 25px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.05)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grain)"/></svg>');
+            animation: drift 20s ease-in-out infinite alternate;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @keyframes drift {
+            0% { transform: translateX(-50px) translateY(-50px); }
+            100% { transform: translateX(50px) translateY(50px); }
+        }
+        
+        /* Glass morphism container */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: var(--shadow-xl);
+        }
+        
+        /* Header */
+        .header {
+            padding: 2rem 0;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .header p {
+            font-size: 1.25rem;
+            color: rgba(255,255,255,0.9);
+            font-weight: 300;
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        /* Form Styles */
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        
+        .form-step {
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .form-step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 2px;
+            background: var(--primary-gradient);
+            transition: left 0.5s ease;
+        }
+        
+        .form-step.active::before {
+            left: 0;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .step-number {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-right: 1rem;
+            box-shadow: var(--shadow-md);
+        }
+        
+        .step-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .input-group {
+            position: relative;
+        }
+        
+        .input-group label {
+            display: block;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: rgba(102, 126, 234, 0.6);
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+        
+        .input-group .tooltip {
+            position: absolute;
+            right: 1rem;
+            top: 2.5rem;
+            color: var(--text-muted);
+            cursor: help;
+            transition: color 0.3s ease;
+        }
+        
+        .input-group .tooltip:hover {
+            color: var(--text-primary);
+        }
+        
+        /* Calculate Button */
+        .calculate-btn {
+            background: var(--primary-gradient);
+            color: white;
+            padding: 1.5rem 3rem;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-lg);
+            align-self: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .calculate-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .calculate-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+        
+        .calculate-btn:hover::before {
+            left: 100%;
+        }
+        
+        /* Results Panel */
+        .results-panel {
+            position: sticky;
+            top: 2rem;
+            height: fit-content;
+        }
+        
+        .results-empty {
+            padding: 3rem 2rem;
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .results-empty .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+        
+        .main-metric {
+            padding: 2rem;
+            text-align: center;
+            background: var(--danger-gradient);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            color: white;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .main-metric::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        
+        .main-metric h3 {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+        
+        .main-metric .value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            padding: 1.5rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .metric-card .label {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-card .value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+        }
+        
+        .download-btn {
+            width: 100%;
+            background: var(--success-gradient);
+            color: white;
+            padding: 1rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        /* Charts Section */
+        .charts-section {
+            margin-top: 3rem;
+            grid-column: 1 / -1;
+        }
+        
+        .charts-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .charts-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1rem;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 2rem;
+        }
+        
+        .chart-card {
+            padding: 2rem;
+            border-radius: 20px;
+            position: relative;
+            min-height: 400px;
+        }
+        
+        .chart-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chart-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: var(--primary-gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-right: 1rem;
+            font-size: 1.25rem;
+        }
+        
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results-panel {
+                position: static;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2.5rem;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card {
+                min-height: 350px;
+            }
+        }
+        
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Success animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        /* Error states */
+        .input-error {
+            border-color: #f56565 !important;
+            background: rgba(245, 101, 101, 0.1) !important;
+        }
+        
+        .error-message {
+            color: #f56565;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Калькулятор потерянных возможностей</h1>
+        <p>Узнайте, сколько вы теряете, откладывая запуск модели подписки</p>
+    </div>
+
+    <div class="container">
+        <div class="main-grid">
+            <!-- Form Section -->
+            <div class="form-container">
+                <!-- Step 1: Current Business -->
+                <div class="form-step glass active" id="step1">
+                    <div class="step-header">
+                        <div class="step-number">1</div>
+                        <div class="step-title">Текущий бизнес</div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="monthlyRevenue">Месячная выручка (₽)</label>
+                            <input type="number" id="monthlyRevenue" placeholder="500 000">
+                            <i class="fas fa-info-circle tooltip" title="Ваша текущая месячная выручка"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="averageOrderValue">Средний чек (₽)</label>
+                            <input type="number" id="averageOrderValue" placeholder="10 000">
+                            <i class="fas fa-info-circle tooltip" title="Средняя стоимость одной покупки"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="customersPerMonth">Клиентов в месяц</label>
+                            <input type="number" id="customersPerMonth" placeholder="50">
+                            <i class="fas fa-info-circle tooltip" title="Количество новых клиентов в месяц"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="repeatPurchaseRate">Повторные покупки (%)</label>
+                            <input type="number" id="repeatPurchaseRate" placeholder="20" min="0" max="100">
+                            <i class="fas fa-info-circle tooltip" title="Процент клиентов, которые покупают повторно"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="customerLifespan">Срок жизни клиента (мес.)</label>
+                            <input type="number" id="customerLifespan" placeholder="6">
+                            <i class="fas fa-info-circle tooltip" title="Средний период активности клиента"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Subscription Parameters -->
+                <div class="form-step glass" id="step2">
+                    <div class="step-header">
+                        <div class="step-number">2</div>
+                        <div class="step-title">Параметры подписки</div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="plannedPrice">Цена подписки в месяц (₽)</label>
+                            <input type="number" id="plannedPrice" placeholder="5 000">
+                            <i class="fas fa-info-circle tooltip" title="Планируемая стоимость месячной подписки"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="expectedConversion">Ожидаемая конверсия (%)</label>
+                            <input type="number" id="expectedConversion" placeholder="30" min="0" max="100">
+                            <i class="fas fa-info-circle tooltip" title="Процент клиентов, которые оформят подписку"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="estimatedChurn">Прогнозируемый отток (%/мес.)</label>
+                            <input type="number" id="estimatedChurn" placeholder="5" min="0" max="100">
+                            <i class="fas fa-info-circle tooltip" title="Процент подписчиков, отменяющих подписку в месяц"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="startDate">Дата запуска</label>
+                            <input type="date" id="startDate">
+                            <i class="fas fa-info-circle tooltip" title="Когда планируете запустить подписку"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Operational Costs -->
+                <div class="form-step glass" id="step3">
+                    <div class="step-header">
+                        <div class="step-number">3</div>
+                        <div class="step-title">Операционные расходы</div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="fixedMonthlyCosts">Постоянные расходы в месяц (₽)</label>
+                            <input type="number" id="fixedMonthlyCosts" placeholder="100 000">
+                            <i class="fas fa-info-circle tooltip" title="Ваши ежемесячные фиксированные затраты"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="customerAcquisitionCost">Стоимость привлечения клиента (₽)</label>
+                            <input type="number" id="customerAcquisitionCost" placeholder="3 000">
+                            <i class="fas fa-info-circle tooltip" title="CAC - затраты на привлечение одного клиента"></i>
+                        </div>
+                        <div class="input-group">
+                            <label for="supportCostPerUser">Стоимость поддержки на пользователя (₽/мес.)</label>
+                            <input type="number" id="supportCostPerUser" placeholder="500">
+                            <i class="fas fa-info-circle tooltip" title="Ежемесячные затраты на поддержку одного подписчика"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calculate Button -->
+                <button class="calculate-btn" onclick="calculateResults()">
+                    <i class="fas fa-calculator"></i> Рассчитать потери
+                </button>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="results-panel">
+                <div class="glass" id="resultsContainer">
+                    <div class="results-empty">
+                        <div class="icon">📊</div>
+                        <p>Заполните форму, чтобы увидеть результаты расчета</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-section" id="chartsSection" style="display: none;">
+                <div class="charts-header">
+                    <h2>Аналитика и прогнозы</h2>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card glass">
+                        <div class="chart-header">
+                            <div class="chart-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="chart-title">Прогноз роста MRR</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="mrrChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card glass">
+                        <div class="chart-header">
+                            <div class="chart-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="chart-title">Рост количества подписчиков</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="subscribersChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card glass">
+                        <div class="chart-header">
+                            <div class="chart-icon">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="chart-title">Накопленный денежный поток</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="cashFlowChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card glass">
+                        <div class="chart-header">
+                            <div class="chart-icon">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                            <div class="chart-title">Unit Economics</div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="unitEconomicsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AdvancedCalculationEngine {
+            constructor(data) {
+                this.data = this.validateData(data);
+            }
+
+            validateData(data) {
+                // Enhanced validation with error handling
+                const validated = { ...data };
+                
+                // Ensure positive values
+                Object.keys(validated).forEach(key => {
+                    if (typeof validated[key] === 'number' && validated[key] < 0) {
+                        validated[key] = 0;
+                    }
+                });
+
+                // Business logic validation
+                if (validated.estimatedChurn > 50) {
+                    console.warn('High churn rate detected - results may be unrealistic');
+                }
+                
+                if (validated.expectedConversion > 80) {
+                    console.warn('Very high conversion rate detected');
+                }
+
+                return validated;
+            }
+
+            calculateBreakEven() {
+                const monthlyProfit = Math.max(0, this.data.plannedPrice - this.data.supportCostPerUser);
+                
+                if (monthlyProfit <= 0) {
+                    return { months: Infinity, date: 'Невозможно', subscribersNeeded: Infinity };
+                }
+
+                const subscribersNeeded = Math.ceil(this.data.fixedMonthlyCosts / monthlyProfit);
+                const initialInvestment = this.data.fixedMonthlyCosts * 3;
+                const months = Math.ceil(initialInvestment / (subscribersNeeded * monthlyProfit));
+                
+                const startDate = new Date(this.data.startDate);
+                const breakEvenDate = new Date(startDate);
+                breakEvenDate.setMonth(breakEvenDate.getMonth() + months);
+
+                return {
+                    months: isFinite(months) ? months : 0,
+                    date: isFinite(months) ? breakEvenDate.toLocaleDateString('ru-RU') : 'Невозможно',
+                    subscribersNeeded: isFinite(subscribersNeeded) ? subscribersNeeded : 0
+                };
+            }
+
+            calculateLostOpportunity() {
+                const startDate = new Date(this.data.startDate);
+                const now = new Date();
+                const monthsSinceCouldStart = Math.max(0, 
+                    (now.getFullYear() - startDate.getFullYear()) * 12 + 
+                    now.getMonth() - startDate.getMonth()
+                );
+                
+                if (monthsSinceCouldStart <= 0) {
+                    return {
+                        totalRevenue: 0,
+                        monthlyRevenue: 0,
+                        subscribers: 0,
+                        companyValuation: 0
+                    };
+                }
+
+                const projectedMRR = this.projectMRR(monthsSinceCouldStart);
+                const actualRevenue = this.data.monthlyRevenue * monthsSinceCouldStart;
+                const lostSubscribers = this.calculateLostSubscribers(monthsSinceCouldStart);
+                const currentMRR = projectedMRR / monthsSinceCouldStart;
+
+                return {
+                    totalRevenue: Math.max(0, projectedMRR - actualRevenue),
+                    monthlyRevenue: currentMRR,
+                    subscribers: lostSubscribers,
+                    companyValuation: currentMRR * 12 * 3 // 3x annual revenue multiple
+                };
+            }
+
+            projectMRR(months) {
+                let subscribers = 0;
+                let totalRevenue = 0;
+                const churnRate = this.data.estimatedChurn / 100;
+
+                for (let month = 1; month <= months; month++) {
+                    const newSubscribers = this.calculateMonthlyAcquisition(month);
+                    const churned = subscribers * churnRate;
+                    
+                    subscribers = Math.max(0, subscribers + newSubscribers - churned);
+                    const monthlyMRR = subscribers * this.data.plannedPrice;
+                    totalRevenue += monthlyMRR;
+                }
+
+                return totalRevenue;
+            }
+
+            calculateMonthlyAcquisition(month) {
+                const baseAcquisition = this.data.customersPerMonth * (this.data.expectedConversion / 100);
+                // Growth factor with diminishing returns
+                const growthFactor = 1 + (month - 1) * 0.03 * Math.exp(-month / 12);
+                return Math.round(baseAcquisition * growthFactor);
+            }
+
+            calculateLostSubscribers(months) {
+                let activeSubscribers = 0;
+                const churnRate = this.data.estimatedChurn / 100;
+
+                for (let month = 1; month <= months; month++) {
+                    const newSubscribers = this.calculateMonthlyAcquisition(month);
+                    const churned = activeSubscribers * churnRate;
+                    
+                    activeSubscribers = Math.max(0, activeSubscribers + newSubscribers - churned);
+                }
+
+                return Math.round(activeSubscribers);
+            }
+
+            calculateUnitEconomics() {
+                const churnRate = this.data.estimatedChurn / 100;
+                const avgLifetime = churnRate > 0 ? 1 / churnRate : 24; // Max 24 months if churn is 0
+                const ltv = this.data.plannedPrice * avgLifetime;
+                const cac = this.data.customerAcquisitionCost;
+
+                return {
+                    ltv: ltv,
+                    cac: cac,
+                    ratio: cac > 0 ? ltv / cac : Infinity,
+                    paybackMonths: this.data.plannedPrice > 0 ? cac / this.data.plannedPrice : Infinity,
+                    monthlyProfit: Math.max(0, this.data.plannedPrice - this.data.supportCostPerUser)
+                };
+            }
+
+            generateProjections() {
+                const projections = {
+                    mrr: [],
+                    subscribers: [],
+                    cashFlow: []
+                };
+
+                let subscribers = 0;
+                let cumulativeCashFlow = -this.data.fixedMonthlyCosts * 3;
+                const churnRate = this.data.estimatedChurn / 100;
+
+                for (let month = 1; month <= 12; month++) {
+                    const newSubscribers = this.calculateMonthlyAcquisition(month);
+                    const churned = subscribers * churnRate;
+                    
+                    subscribers = Math.max(0, subscribers + newSubscribers - churned);
+                    const mrr = subscribers * this.data.plannedPrice;
+                    
+                    const revenue = mrr;
+                    const costs = this.data.fixedMonthlyCosts + (subscribers * this.data.supportCostPerUser);
+                    const monthlyProfit = revenue - costs;
+                    cumulativeCashFlow += monthlyProfit;
+
+                    projections.mrr.push({
+                        month: month,
+                        value: Math.round(mrr),
+                        label: `Месяц ${month}`
+                    });
+
+                    projections.subscribers.push({
+                        month: month,
+                        value: Math.round(subscribers),
+                        label: `Месяц ${month}`
+                    });
+
+                    projections.cashFlow.push({
+                        month: month,
+                        value: Math.round(cumulativeCashFlow),
+                        label: `Месяц ${month}`
+                    });
+                }
+
+                return projections;
+            }
+        }
+
+        function validateForm() {
+            const requiredFields = [
+                'monthlyRevenue', 'averageOrderValue', 'customersPerMonth', 
+                'repeatPurchaseRate', 'customerLifespan', 'plannedPrice', 
+                'expectedConversion', 'estimatedChurn', 'startDate', 
+                'fixedMonthlyCosts', 'customerAcquisitionCost', 'supportCostPerUser'
+            ];
+
+            let isValid = true;
+            const errors = {};
+
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field);
+                const value = parseFloat(element.value);
+                
+                // Remove previous error states
+                element.classList.remove('input-error');
+                const errorElement = element.parentNode.querySelector('.error-message');
+                if (errorElement) {
+                    errorElement.remove();
+                }
+
+                if (!element.value || (field !== 'startDate' && (isNaN(value) || value < 0))) {
+                    isValid = false;
+                    errors[field] = 'Поле обязательно для заполнения';
+                    element.classList.add('input-error');
+                    
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.textContent = errors[field];
+                    element.parentNode.appendChild(errorDiv);
+                }
+
+                // Additional validations
+                if (field === 'repeatPurchaseRate' && value > 100) {
+                    isValid = false;
+                    errors[field] = 'Значение не может быть больше 100%';
+                }
+                if (field === 'expectedConversion' && value > 100) {
+                    isValid = false;
+                    errors[field] = 'Значение не может быть больше 100%';
+                }
+                if (field === 'estimatedChurn' && value > 100) {
+                    isValid = false;
+                    errors[field] = 'Значение не может быть больше 100%';
+                }
+            });
+
+            return { isValid, errors };
+        }
+
+        function calculateResults() {
+            const validation = validateForm();
+            
+            if (!validation.isValid) {
+                alert('Пожалуйста, исправьте ошибки в форме');
+                return;
+            }
+
+            // Show loading state
+            const button = document.querySelector('.calculate-btn');
+            const originalText = button.innerHTML;
+            button.innerHTML = '<div class="loading"></div> Расчет...';
+            button.disabled = true;
+
+            setTimeout(() => {
+                try {
+                    const formData = {
+                        monthlyRevenue: parseFloat(document.getElementById('monthlyRevenue').value),
+                        averageOrderValue: parseFloat(document.getElementById('averageOrderValue').value),
+                        customersPerMonth: parseFloat(document.getElementById('customersPerMonth').value),
+                        repeatPurchaseRate: parseFloat(document.getElementById('repeatPurchaseRate').value),
+                        customerLifespan: parseFloat(document.getElementById('customerLifespan').value),
+                        plannedPrice: parseFloat(document.getElementById('plannedPrice').value),
+                        expectedConversion: parseFloat(document.getElementById('expectedConversion').value),
+                        estimatedChurn: parseFloat(document.getElementById('estimatedChurn').value),
+                        startDate: document.getElementById('startDate').value,
+                        fixedMonthlyCosts: parseFloat(document.getElementById('fixedMonthlyCosts').value),
+                        customerAcquisitionCost: parseFloat(document.getElementById('customerAcquisitionCost').value),
+                        supportCostPerUser: parseFloat(document.getElementById('supportCostPerUser').value)
+                    };
+
+                    const engine = new AdvancedCalculationEngine(formData);
+                    
+                    const results = {
+                        breakEven: engine.calculateBreakEven(),
+                        lostOpportunity: engine.calculateLostOpportunity(),
+                        unitEconomics: engine.calculateUnitEconomics(),
+                        projections: engine.generateProjections()
+                    };
+
+                    displayResults(results);
+                    createCharts(results);
+
+                } catch (error) {
+                    console.error('Calculation error:', error);
+                    alert('Произошла ошибка при расчете. Проверьте введенные данные.');
+                } finally {
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            }, 1000);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('resultsContainer');
+            const { lostOpportunity, breakEven, unitEconomics } = results;
+
+            container.innerHTML = `
+                <div class="animate-in">
+                    <div class="main-metric">
+                        <h3>Упущенная выгода</h3>
+                        <div class="value">${formatCurrency(lostOpportunity.totalRevenue)}</div>
+                    </div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="label">Точка безубыточности</div>
+                            <div class="value">${breakEven.months} мес.</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="label">Потенциальная оценка</div>
+                            <div class="value">${formatCurrency(lostOpportunity.companyValuation)}</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="label">LTV/CAC соотношение</div>
+                            <div class="value">${isFinite(unitEconomics.ratio) ? unitEconomics.ratio.toFixed(1) : '∞'}</div>
+                        </div>
+                        
+                        <div class="metric-card">
+                            <div class="label">Потерянные подписчики</div>
+                            <div class="value">${lostOpportunity.subscribers}</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="label">Месячный MRR</div>
+                            <div class="value">${formatCurrency(lostOpportunity.monthlyRevenue)}</div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="label">Срок окупаемости</div>
+                            <div class="value">${isFinite(unitEconomics.paybackMonths) ? unitEconomics.paybackMonths.toFixed(1) : '∞'} мес.</div>
+                        </div>
+                    </div>
+
+                    <button class="download-btn" onclick="generatePDFReport()">
+                        <i class="fas fa-download"></i> Скачать отчет PDF
+                    </button>
+                </div>
+            `;
+
+            // Show charts section
+            document.getElementById('chartsSection').style.display = 'block';
+        }
+
+        function createCharts(results) {
+            createMRRChart(results.projections.mrr);
+            createSubscribersChart(results.projections.subscribers);
+            createCashFlowChart(results.projections.cashFlow);
+            createUnitEconomicsChart(results.unitEconomics);
+        }
+
+        function createMRRChart(data) {
+            const ctx = document.getElementById('mrrChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        label: 'MRR (₽)',
+                        data: data.map(d => d.value),
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)'
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            hoverRadius: 8
+                        }
+                    }
+                }
+            });
+        }
+
+        function createSubscribersChart(data) {
+            const ctx = document.getElementById('subscribersChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        label: 'Подписчики',
+                        data: data.map(d => d.value),
+                        backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createCashFlowChart(data) {
+            const ctx = document.getElementById('cashFlowChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        label: 'Денежный поток (₽)',
+                        data: data.map(d => d.value),
+                        borderColor: data.map(d => d.value >= 0 ? 'rgba(16, 185, 129, 1)' : 'rgba(239, 68, 68, 1)'),
+                        backgroundColor: data.map(d => d.value >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'),
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: data.map(d => d.value >= 0 ? 'rgba(16, 185, 129, 1)' : 'rgba(239, 68, 68, 1)'),
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                callback: function(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.8)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createUnitEconomicsChart(unitEconomics) {
+            const ctx = document.getElementById('unitEconomicsChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['LTV', 'CAC', 'Прибыль на клиента'],
+                    datasets: [{
+                        data: [
+                            unitEconomics.ltv,
+                            unitEconomics.cac,
+                            Math.max(0, unitEconomics.ltv - unitEconomics.cac)
+                        ],
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(79, 70, 229, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(79, 70, 229, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + formatCurrency(context.parsed);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('ru-RU', {
+                style: 'currency',
+                currency: 'RUB',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function generatePDFReport() {
+            alert('Функция генерации PDF-отчета будет доступна в следующей версии.\n\nВ отчет будут включены:\n• Все расчеты и метрики\n• Графики и визуализации\n• Рекомендации по оптимизации\n• Сравнение сценариев');
+        }
+
+        // Auto-save form data
+        function saveFormData() {
+            const formData = {};
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                formData[input.id] = input.value;
+            });
+            localStorage.setItem('calculatorData', JSON.stringify(formData));
+        }
+
+        function loadFormData() {
+            const savedData = localStorage.getItem('calculatorData');
+            if (savedData) {
+                const formData = JSON.parse(savedData);
+                Object.keys(formData).forEach(key => {
+                    const input = document.getElementById(key);
+                    if (input) {
+                        input.value = formData[key];
+                    }
+                });
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFormData();
+            
+            // Set default start date to today
+            const startDateInput = document.getElementById('startDate');
+            if (!startDateInput.value) {
+                startDateInput.value = new Date().toISOString().split('T')[0];
+            }
+
+            // Auto-save on input change
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', saveFormData);
+            });
+
+            // Progressive form activation
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach((input, index) => {
+                input.addEventListener('focus', () => {
+                    const step = Math.ceil((index + 1) / 5);
+                    document.querySelectorAll('.form-step').forEach((stepEl, stepIndex) => {
+                        stepEl.classList.toggle('active', stepIndex + 1 === step);
+                    });
+                });
+            });
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                calculateResults();
+            }
+        });
+
+        // Add number formatting on input
+        document.querySelectorAll('input[type="number"]').forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value && !isNaN(this.value)) {
+                    // Format large numbers with spaces
+                    const value = parseFloat(this.value);
+                    if (value >= 1000) {
+                        this.setAttribute('data-formatted', 'true');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
